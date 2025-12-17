@@ -1,24 +1,28 @@
+import 'dart:io';
+
 import 'package:magstep_dart/magstep_dart.dart';
+import 'package:magstep_dart/src/filters/butterworth.dart';
+import 'package:magstep_dart/src/signal_analysis.dart';
 import 'package:test/test.dart';
 
 import 'utils/csv_loader.dart';
 
 void main() {
-  test('MagPath Polar data – end-to-end pipeline', () {
-    final samples = loadMagPathCsv('test/data/magPath.csv');
+  test('MagPath – filter validation', () {
+    final samples = loadSignalCsv('test/data/magPath.csv');
 
-    final result = SessionAnalysis.processSession(samples);
+    final filter = ButterworthFilter.lowPass(
+      order: 4,
+      cutoffHz: 3.0,
+      samplingRate: 50.0,
+    );
 
-    // Pipeline integrity
+    final result = SignalAnalysis.process(samples, filter);
+
+    File('test/output/magPath_filtered.csv').writeAsStringSync(
+      result.filtered.map((v) => v.toStringAsFixed(8)).join('\n'),
+    );
+
     expect(result.filtered.length, samples.length);
-    // expect(result.motionless.length, samples.length);
-
-    // Step timestamps must be strictly increasing (if any)
-    for (int i = 1; i < result.steps.length; i++) {
-      expect(
-        result.steps[i].timestamp.isAfter(result.steps[i - 1].timestamp),
-        true,
-      );
-    }
   });
 }
