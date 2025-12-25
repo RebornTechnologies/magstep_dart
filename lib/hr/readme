@@ -1,0 +1,106 @@
+┌──────────────────────────────────────────┐
+│ Step 1: RawSample → HrSample             │
+│                                          │
+│ t0 = first.timestamp                      │
+│ timeSeconds = (ts - t0) / 1000           │
+│ hr = sample.x                            │
+│                                          │
+│ Output:                                  │
+│ HrSample(timeSeconds, hr)                │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 2: cleanAndResampleHr()             │
+│                                          │
+│ - Remove invalid HR (≤ 0, NaN)           │
+│ - Median smoothing (spike removal)       │
+│ - Clamp unrealistic HR jumps             │
+│ - Interpolate short gaps                 │
+│ - Preserve long gaps (NaN)               │
+│ - Resample to uniform 1 Hz grid          │
+│                                          │
+│ Output:                                  │
+│ List<HrSample> (1 Hz, clean)             │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 3: detectEfforts()                  │
+│                                          │
+│ - HR expressed as % of HRmax             │
+│ - Threshold-based sustained effort       │
+│ - Detect start / end times               │
+│                                          │
+│ Output:                                  │
+│ List<Effort>                             │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 4: HR Recovery per Effort           │
+│                                          │
+│ For each effort:                         │
+│ - Extract post-effort window             │
+│ - Compute HRR metrics                    │
+│                                          │
+│ Metrics:                                 │
+│ - HRR @ 60s                              │
+│ - HRR @ 120s                             │
+│ - Recovery slope                         │
+│ - Time constant (τ)                      │
+│                                          │
+│ Output:                                  │
+│ List<HrrResult>                          │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 5: TRIMP Computation                │
+│                                          │
+│ Inputs:                                  │
+│ - HR samples                             │
+│ - HRmax / HRrest                         │
+│ - Sex-specific constants                  │
+│                                          │
+│ Models:                                  │
+│ - Edwards TRIMP                          │
+│ - Banister TRIMP                         │
+│                                          │
+│ Output:                                  │
+│ TrimpSummary                             │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 6: Time in Zones                    │
+│                                          │
+│ - Zones defined as % of HRmax             │
+│ - Accumulate duration per zone           │
+│                                          │
+│ Output:                                  │
+│ TimeInZoneSummary                        │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 7: VO₂max Estimation                │
+│                                          │
+│ - Based on best sustained effort         │
+│ - HR response vs intensity               │
+│                                          │
+│ Output:                                  │
+│ Vo2MaxSummary                            │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌────────────────────────────────────────-──┐
+│ HrResult                                  │
+│                                           │
+│ - samples   (clean 1 Hz HR)   ← reference │
+│ - efforts                                 │
+│ - recoveries                              │
+│ - trimp                                   │
+│ - zones                                   │
+│ - vo2max                                  │
+└────────────────────────────────────-──────┘

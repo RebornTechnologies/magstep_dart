@@ -3,9 +3,9 @@
 /// More dartdocs go here.
 library;
 
-export 'src/session_analysis.dart';
-export 'src/detect_extrema.dart';
-export 'src/motionless_mask.dart';
-export 'src/pair_extrema.dart';
-export 'src/map_pairs_to_steps.dart';
+export 'session/session_analysis.dart';
+export 'steps/detect_extrema.dart';
+export 'steps/motionless_mask.dart';
+export 'steps/pair_extrema.dart';
+export 'steps/map_pairs_to_steps.dart';
 export 'src/hr.dart';

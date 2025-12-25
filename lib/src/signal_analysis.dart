@@ -1,6 +1,8 @@
-import 'filters/butterworth.dart';
-import 'filters/filtfilt.dart';
-import 'motionless_mask.dart';
+import 'package:magstep_dart/core/filtfilt.dart';
+
+import '../filters/butterworth.dart';
+import '../filters/filtfilt.dart';
+import '../steps/motionless_mask.dart';
 
 class SignalSample {
   final double value;
