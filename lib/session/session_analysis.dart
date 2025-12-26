@@ -1,10 +1,11 @@
+import 'package:magstep_dart/accelerometer/accel_pipeline.dart';
+import 'package:magstep_dart/accelerometer/accel_pipeline_result.dart';
+import 'package:magstep_dart/accelerometer/raw/accel_sample.dart';
+
 import '../core/raw_sample.dart';
 
 import '../magpath/magpath_pipeline.dart';
 import '../magpath/magpath_result.dart';
-
-import '../accelerometer/accelerometer_pipeline.dart';
-import '../accelerometer/accelerometer_result.dart';
 
 import '../gyroscope/gyroscope_pipeline.dart';
 import '../gyroscope/gyroscope_result.dart';
@@ -26,7 +27,7 @@ import '../hr/trimp/banister_constants.dart';
 class SessionAnalysis {
   static ({
     MagPathResult magPath,
-    AccelerometerResult accelerometer,
+    AccelPipelineResult accel,
     GyroscopeResult gyroscope,
     HrResult hr,
   })
@@ -39,10 +40,24 @@ class SessionAnalysis {
     required double hrRest,
     required Sex sex,
   }) {
+    // -------------------------------------------------------------------------
+    // Magnetometer
+    // -------------------------------------------------------------------------
     final mag = MagPathPipeline.run(magSamples);
-    final accel = AccelerometerPipeline.run(accelSamples);
+
+    // -------------------------------------------------------------------------
+    // Gyroscope
+    // -------------------------------------------------------------------------
     final gyro = GyroscopePipeline.run(gyroSamples);
 
+    // -------------------------------------------------------------------------
+    // Accelerometer
+    // -------------------------------------------------------------------------
+    final accel = AccelPipeline.run(rawSamples: _mapAccelSamples(accelSamples));
+
+    // -------------------------------------------------------------------------
+    // Heart Rate
+    // -------------------------------------------------------------------------
     final hr = HrPipeline.run(
       rawHrSamples: hrSamples,
       hrMax: hrMax,
@@ -50,6 +65,22 @@ class SessionAnalysis {
       sex: sex,
     );
 
-    return (magPath: mag, accelerometer: accel, gyroscope: gyro, hr: hr);
+    return (magPath: mag, accel: accel, gyroscope: gyro, hr: hr);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  static List<AccelSample> _mapAccelSamples(List<RawSample> raw) {
+    if (raw.isEmpty) return const [];
+
+    final t0 = raw.first.timestamp;
+
+    return raw.map((s) {
+      final tsSeconds = s.timestamp.difference(t0).inMicroseconds / 1e6;
+
+      return AccelSample(timestamp: tsSeconds, x: s.x, y: s.y, z: s.z);
+    }).toList();
   }
 }

@@ -1,0 +1,112 @@
+┌──────────────────────────────────────────┐
+│ Step 1: RawSample → AccelSample          │
+│                                          │
+│ t0 = first.timestamp                      │
+│ timeSeconds = (ts - t0) / 1000           │
+│ x = sample.x                             │
+│ y = sample.y                             │
+│ z = sample.z                             │
+│                                          │
+│ Output:                                  │
+│ AccelSample(timeSeconds, x, y, z)        │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 2: resampleAccel()                  │
+│                                          │
+│ - Ensure monotonic timestamps            │
+│ - Target fixed sampling rate              │
+│ - Linear interpolation                   │
+│ - Fill short gaps                        │
+│ - Drop invalid samples                   │
+│                                          │
+│ Output:                                  │
+│ List<AccelSample> (uniform dt)           │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 3: highPassFilter()                 │
+│                                          │
+│ y[i] = α·(y[i−1] + x[i] − x[i−1])        │
+│                                          │
+│ - Applied independently on X, Y, Z       │
+│ - Removes gravity & slow drift           │
+│                                          │
+│ Output:                                  │
+│ Filtered AccelSample (fx, fy, fz)        │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 4: computeMagnitude()               │
+│                                          │
+│ mag = √(fx² + fy² + fz²)                 │
+│                                          │
+│ - Orientation independent                │
+│ - Reduces 3 axes → 1 signal              │
+│                                          │
+│ Output:                                  │
+│ List<double> magnitude                   │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 5: zeroMeanNormalize()              │
+│                                          │
+│ magZM = mag − mean(mag)                  │
+│                                          │
+│ - Centers signal around zero             │
+│ - Stabilizes peak detection              │
+│                                          │
+│ Output:                                  │
+│ List<double> magnitudeZeroMean           │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 6: detectSteps()                    │
+│                                          │
+│ - Peak detection on magZM                │
+│ - Threshold-based detection              │
+│ - Enforce minimum step interval          │
+│ - Prevent double counting                │
+│                                          │
+│ Output:                                  │
+│ stepIndices, stepTimestamps, stepCount   │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 7: computeCadence()                 │
+│                                          │
+│ cadence = steps / durationMinutes        │
+│                                          │
+│ Output:                                  │
+│ cadence (steps per minute)               │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 8: classifyActivity()               │
+│                                          │
+│ - Uses cadence & motion consistency      │
+│ - Maps to semantic activity              │
+│                                          │
+│ Output:                                  │
+│ ActivityLevel                            │
+│ (Sedentary / Walking / Running / High)   │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 9: AccelPipelineResult              │
+│                                          │
+│ stepCount                                │
+│ cadence                                  │
+│ activity                                 │
+│ confidence                                │
+│                                          │
+│ (Semantic output only)                   │
+└──────────────────────────────────────────┘

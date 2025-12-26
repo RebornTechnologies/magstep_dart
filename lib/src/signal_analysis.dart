@@ -1,33 +1,33 @@
-import 'package:magstep_dart/core/filtfilt.dart';
+ 
 
-import '../filters/butterworth.dart';
-import '../filters/filtfilt.dart';
-import '../steps/motionless_mask.dart';
+// import '../filters/butterworth.dart';
+// import '../filters/filtfilt.dart';
+// import '../steps/motionless_mask.dart';
 
-class SignalSample {
-  final double value;
-  final DateTime timestamp;
+// class SignalSample {
+//   final double value;
+//   final DateTime timestamp;
 
-  SignalSample({required this.value, required this.timestamp});
-}
+//   SignalSample({required this.value, required this.timestamp});
+// }
 
-class SignalAnalysisResult {
-  final List<double> filtered;
-  final List<bool> motionless;
+// class SignalAnalysisResult {
+//   final List<double> filtered;
+//   final List<bool> motionless;
 
-  SignalAnalysisResult({required this.filtered, required this.motionless});
-}
+//   SignalAnalysisResult({required this.filtered, required this.motionless});
+// }
 
-class SignalAnalysis {
-  static SignalAnalysisResult process(
-    List<SignalSample> samples,
-    ButterworthFilter filter,
-  ) {
-    final values = samples.map((s) => s.value).toList();
+// class SignalAnalysis {
+//   static SignalAnalysisResult process(
+//     List<SignalSample> samples,
+//     ButterworthFilter filter,
+//   ) {
+//     final values = samples.map((s) => s.value).toList();
 
-    final motionless = MotionlessMask.detectMotionless(values);
-    final filtered = filtfilt(values, filter.b, filter.a);
+//     final motionless = MotionlessMask.detectMotionless(values);
+    
 
-    return SignalAnalysisResult(filtered: filtered, motionless: motionless);
-  }
-}
+//     return SignalAnalysisResult(filtered: filtered, motionless: motionless);
+//   }
+// }
