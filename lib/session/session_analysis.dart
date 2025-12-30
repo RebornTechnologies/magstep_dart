@@ -1,14 +1,13 @@
 import 'package:magstep_dart/accelerometer/accel_pipeline.dart';
 import 'package:magstep_dart/accelerometer/accel_pipeline_result.dart';
 import 'package:magstep_dart/accelerometer/raw/accel_sample.dart';
+import 'package:magstep_dart/gyroscope/gyro_pipeline.dart';
+import 'package:magstep_dart/gyroscope/gyro_pipeline_result.dart';
 
 import '../core/raw_sample.dart';
 
 import '../magpath/magpath_pipeline.dart';
 import '../magpath/magpath_result.dart';
-
-import '../gyroscope/gyroscope_pipeline.dart';
-import '../gyroscope/gyroscope_result.dart';
 
 import '../hr/hr_pipeline.dart';
 import '../hr/hr_result.dart';
@@ -22,13 +21,13 @@ import '../hr/trimp/banister_constants.dart';
 /// Pipelines included:
 /// - Magnetometer (MagPath)
 /// - Accelerometer
-/// - Gyroscope
+/// - Gyroscope (SciPy-matched Butterworth + filtfilt)
 /// - Heart Rate (HR)
 class SessionAnalysis {
   static ({
     MagPathResult magPath,
     AccelPipelineResult accel,
-    GyroscopeResult gyroscope,
+    GyroPipelineResult gyro,
     HrResult hr,
   })
   run({
@@ -46,14 +45,22 @@ class SessionAnalysis {
     final mag = MagPathPipeline.run(magSamples);
 
     // -------------------------------------------------------------------------
-    // Gyroscope
-    // -------------------------------------------------------------------------
-    final gyro = GyroscopePipeline.run(gyroSamples);
-
-    // -------------------------------------------------------------------------
     // Accelerometer
     // -------------------------------------------------------------------------
     final accel = AccelPipeline.run(rawSamples: _mapAccelSamples(accelSamples));
+
+    // -------------------------------------------------------------------------
+    // Gyroscope
+    // -------------------------------------------------------------------------
+    final gyroPipeline = GyroPipeline();
+
+    final gyroMapped = _mapGyroSamples(gyroSamples);
+
+    final gyro = gyroPipeline.process(
+      x: gyroMapped.$1,
+      y: gyroMapped.$2,
+      z: gyroMapped.$3,
+    );
 
     // -------------------------------------------------------------------------
     // Heart Rate
@@ -65,7 +72,7 @@ class SessionAnalysis {
       sex: sex,
     );
 
-    return (magPath: mag, accel: accel, gyroscope: gyro, hr: hr);
+    return (magPath: mag, accel: accel, gyro: gyro, hr: hr);
   }
 
   // ---------------------------------------------------------------------------
@@ -82,5 +89,28 @@ class SessionAnalysis {
 
       return AccelSample(timestamp: tsSeconds, x: s.x, y: s.y, z: s.z);
     }).toList();
+  }
+
+  /// Maps raw gyro samples into separate X / Y / Z arrays.
+  ///
+  /// Time is not required for filtering, only for alignment.
+  static (List<double>, List<double>, List<double>) _mapGyroSamples(
+    List<RawSample> raw,
+  ) {
+    if (raw.isEmpty) {
+      return (const [], const [], const []);
+    }
+
+    final x = <double>[];
+    final y = <double>[];
+    final z = <double>[];
+
+    for (final s in raw) {
+      x.add(s.x);
+      y.add(s.y);
+      z.add(s.z);
+    }
+
+    return (x, y, z);
   }
 }

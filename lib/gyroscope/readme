@@ -1,0 +1,77 @@
+┌────────────────────────────────────────────┐
+│ Step 1: Load raw gyro samples              │
+│                                            │
+│ Input JSON:                                │
+│  - sensor timestamp (ns)                   │
+│  - x, y, z angular velocity                │
+│                                            │
+│ Output:                                    │
+│  RawSample(timestamp, x, y, z)             │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 2: Timestamp normalization            │
+│                                            │
+│ t0 = first sensor timestamp                 │
+│ deltaMs = (ts - t0) / 1e6                  │
+│ epochMs = startTimeMs + deltaMs            │
+│                                            │
+│ Purpose:                                   │
+│  - align gyro with other sensors           │
+│  - deterministic time base                 │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 3: Axis separation                    │
+│                                            │
+│ gx = [x0, x1, x2, ...]                     │
+│ gy = [y0, y1, y2, ...]                     │
+│ gz = [z0, z1, z2, ...]                     │
+│                                            │
+│ Matches SciPy array input                  │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 4: Butterworth High-Pass Design       │
+│                                            │
+│ Parameters:                                │
+│  - type     = high-pass                    │
+│  - cutoffHz = 0.3                          │
+│  - fsHz     = 50                           │
+│  - order    = 2                            │
+│                                            │
+│ SciPy equivalent:                          │
+│  butter(order, Wn, btype='high',           │
+│         output='sos')                      │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 5: SOS Cascade Filtering              │
+│                                            │
+│ Each axis processed independently          │
+│                                            │
+│ Direct Form II Transposed                  │
+│                                            │
+│ Ensures numerical stability                │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 6: Zero-Phase Filtering (filtfilt)      │
+│                                            │
+│ Forward pass                               │
+│ Reverse signal                             │
+│ Backward pass                              │
+│ Reverse back                               │
+│                                            │
+│ Effect:                                    │
+│  - zero phase distortion                   │
+│  - effective order = 4                     │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 7: Output GyroPipelineResult          │
+│                                            │
+│ gx_filt, gy_filt, gz_filt                     │
+│                                            │
+│ Numerically aligned with SciPy             │
+└────────────────────────────────────────────┘

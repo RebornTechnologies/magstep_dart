@@ -30,7 +30,7 @@ void main() {
     final List samples = payload['samples'];
 
     // --------------------------------------------------
-    // BUILD RawSample LIST (MATCH PYTHON)
+    // BUILD RawSample LIST
     // --------------------------------------------------
     final List<RawSample> rawHrSamples = [];
 
