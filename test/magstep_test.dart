@@ -1,78 +1,52 @@
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:magstep_dart/filters/filtfilt.dart';
-import 'package:magstep_dart/filters/butterworth.dart';
-
+import 'package:magstep_dart/magstep/magstep_pipeline.dart';
 import 'package:test/test.dart';
 
-import 'utils/csv_loader.dart';
-
 void main() {
-  group('DSP filter validation', () {
-    late Directory outputDir;
+  test('Export MagStep fused signal (Dart)', () async {
+    final input =
+        jsonDecode(File('test/data/magnetometer.json').readAsStringSync())
+            as Map<String, dynamic>;
 
-    setUpAll(() {
-      outputDir = Directory('test/dart_output');
-      if (!outputDir.existsSync()) {
-        outputDir.createSync(recursive: true);
-      }
-    });
+    final samples = input['data']['payload']['samples'] as List<dynamic>;
 
-    test('MagPath – filter validation', () {
-      // Scalar signal ONLY (matches Python exactly)
-      final signal = loadScalarCsv('test/data/magPath.csv');
+    final t = <double>[];
+    final x = <double>[];
+    final y = <double>[];
+    final z = <double>[];
 
-      final filter = ButterworthFilter.lowPass(
-        order: 4,
-        cutoffHz: 3.0,
-        samplingRate: 50.0,
-      );
+    final int t0 = samples.first['timeStamp'];
 
-      final filtered = scipyFiltfilt(signal, filter.b, filter.a);
+    for (final s in samples) {
+      t.add((s['timeStamp'] - t0) / 1e9);
+      x.add((s['x'] as num).toDouble());
+      y.add((s['y'] as num).toDouble());
+      z.add((s['z'] as num).toDouble());
+    }
 
-      File(
-        'test/dart_output/magPath_filtered.csv',
-      ).writeAsStringSync(filtered.map((v) => v.toStringAsFixed(8)).join('\n'));
+    final fs = 1.0 / (t[1] - t[0]);
 
-      expect(filtered.length, signal.length);
-    });
+    late List<double> fused;
+    late List<double> tMoving;
 
-    test('Accelerometer – magnitude filter validation', () {
-      // CSV already contains scalar magnitude (NOT ax, ay, az)
-      final signal = loadScalarCsv('test/data/accelerometer.csv');
+    detectStepsMag(
+      t: t,
+      signals: [x, y, z],
+      fs: fs,
+      onDebugSignal: (f, tm) {
+        fused = f;
+        tMoving = tm;
+      },
+    );
 
-      final filter = ButterworthFilter.lowPass(
-        order: 4,
-        cutoffHz: 3.0,
-        samplingRate: 50.0,
-      );
+    final out = {'t': tMoving, 'fused': fused};
 
-      final filtered = scipyFiltfilt(signal, filter.b, filter.a);
+    File(
+      'test/dart_output/magstep_fused_dart.json',
+    ).writeAsStringSync(jsonEncode(out));
 
-      File(
-        'test/dart_output/accelerometer_filtered.csv',
-      ).writeAsStringSync(filtered.map((v) => v.toStringAsFixed(8)).join('\n'));
-
-      expect(filtered.length, signal.length);
-    });
-
-    test('Gyroscope – magnitude filter validation', () {
-      // CSV already contains scalar magnitude (NOT gx, gy, gz)
-      final signal = loadScalarCsv('test/data/gyroscope.csv');
-
-      final filter = ButterworthFilter.lowPass(
-        order: 4,
-        cutoffHz: 3.0,
-        samplingRate: 50.0,
-      );
-
-      final filtered = scipyFiltfilt(signal, filter.b, filter.a);
-
-      File(
-        'test/dart_output/gyroscope_filtered.csv',
-      ).writeAsStringSync(filtered.map((v) => v.toStringAsFixed(8)).join('\n'));
-
-      expect(filtered.length, signal.length);
-    });
+    expect(fused.isNotEmpty, true);
   });
 }

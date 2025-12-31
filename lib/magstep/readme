@@ -1,0 +1,69 @@
+┌──────────────────────────────────────────┐
+│ Step 1: Raw Magnetometer Samples         │
+│                                          │
+│ Input:                                   │
+│   RawSample(timestamp, x, y, z)          │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 2: Time Normalization               │
+│                                          │
+│ t0 = first.timestamp                      │
+│ t[i] = (ts - t0) in seconds              │
+│                                          │
+│ Output:                                  │
+│   t[], x[], y[], z[]                     │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 3: Motionless Mask                  │
+│                                          │
+│ meanSignal = mean(x, y, z)               │
+│ mask = motionlessMask(                   │
+│   meanSignal, thrUT=0.5, winSec=0.5      │
+│ )                                        │
+│                                          │
+│ Removes stationary segments              │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 4: Axis Noise Estimation            │
+│                                          │
+│ noise = axisNoiseAbsDev(x, y, z)         │
+│                                          │
+│ Used to weight axes during fusion        │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 5: Axis Fusion                      │
+│                                          │
+│ fused = fuseAxesWeighted(                │
+│   x, y, z, noise                         │
+│ )                                        │
+│                                          │
+│ Produces a single step-sensitive signal  │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 6: Extrema Detection                │
+│                                          │
+│ minima, maxima = detectExtrema(          │
+│   fusedMoving                            │
+│ )                                        │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 7: Pair Extrema                     │
+│                                          │
+│ pairs = pairExtrema(minima, maxima)      │
+│                                          │
+│ Each pair corresponds to one step        │
+└─────────────┬────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│ Step 8: Map to Step Times                │
+│                                          │
+│ stepTime = (t[min] + t[max]) / 2         │
+│                                          │
+│ Output: List<double> stepTimes           │
+└──────────────────────────────────────────┘

@@ -9,13 +9,13 @@ import 'package:magstep_dart/hr/hr_result.dart';
 import 'package:magstep_dart/hr/trimp/banister_constants.dart';
 
 void main() {
-  test('Export filtered HR to CSV (Dart)', () async {
+  test('HR pipeline end-to-end + export timeline CSV (Dart)', () async {
     // --------------------------------------------------
     // PATHS
     // --------------------------------------------------
     final root = Directory.current.path;
     final inputFile = File('$root/test/data/hr.json');
-    final outputFile = File('$root/test/dart_output/hr_filtered_dart.csv');
+    final outputFile = File('$root/test/dart_output/hr_timeline_dart.csv');
 
     expect(inputFile.existsSync(), isTrue);
 
@@ -45,44 +45,48 @@ void main() {
         isUtc: true,
       );
 
-      rawHrSamples.add(
-        RawSample(
-          x: hr, // HR BPM stored in x-axis
-          y: 0,
-          z: 0,
-          timestamp: timestamp,
-        ),
-      );
+      rawHrSamples.add(RawSample(x: hr, y: 0, z: 0, timestamp: timestamp));
     }
 
     expect(rawHrSamples.isNotEmpty, isTrue);
 
     // --------------------------------------------------
-    // RUN HR PIPELINE (CORRECT SIGNATURE)
+    // RUN HR PIPELINE
     // --------------------------------------------------
     final HrResult result = HrPipeline.run(
       rawHrSamples: rawHrSamples,
-      hrMax: 190, // <-- must be fixed to compare Python/Dart
+      hrMax: 190,
       hrRest: 60,
       sex: Sex.male,
     );
 
     // --------------------------------------------------
-    // EXPORT RESAMPLED HR (PIPELINE OUTPUT)
+    // EXPORT TIMELINE CSV (FOR PYTHON ↔ DART COMPARISON)
     // --------------------------------------------------
     final buffer = StringBuffer();
-    buffer.writeln('time_s,hr_filtered');
+    buffer.writeln('time_s,hr,zone,trimp,hrmax');
 
-    for (final sample in result.samples) {
-      final t = sample.time.toStringAsFixed(6);
-      final hr = sample.hr.isNaN ? '' : sample.hr.toStringAsFixed(6);
-
-      buffer.writeln('$t,$hr');
+    for (final p in result.timeline) {
+      buffer.writeln(
+        '${p.timeSeconds.toStringAsFixed(3)},'
+        '${p.sample.hr.toStringAsFixed(2)},'
+        '${p.zone},'
+        '${p.trimp.toStringAsFixed(6)},'
+        '${p.hrMax.toStringAsFixed(2)}',
+      );
     }
 
+    await outputFile.create(recursive: true);
     await outputFile.writeAsString(buffer.toString());
 
-    print('✅ Dart HR CSV written to: ${outputFile.path}');
-    print('🔢 Samples: ${result.samples.length}');
+    // --------------------------------------------------
+    // DEBUG OUTPUT
+    // --------------------------------------------------
+    print('Dart HR timeline json written to: ${outputFile.path}');
+    print('Samples (resampled): ${result.samples.length}');
+    print('Is HRmax updated: ${result.hasNewHrMax}');
+    if (result.hasNewHrMax) {
+      print('New HRmax: ${result.updatedHrMax}');
+    }
   });
 }

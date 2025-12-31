@@ -11,44 +11,64 @@
               │
               ▼
 ┌──────────────────────────────────────────┐
-│ Step 2: cleanAndResampleHr()             │
+│ Step 2: HR Resampling (1 Hz)             │
 │                                          │
-│ - Remove invalid HR (≤ 0, NaN)           │
-│ - Median smoothing (spike removal)       │
-│ - Clamp unrealistic HR jumps             │
-│ - Interpolate short gaps                 │
-│ - Preserve long gaps (NaN)               │
-│ - Resample to uniform 1 Hz grid          │
+│ - Remove duplicates                      │
+│ - Sort by time                           │
+│ - Interpolate missing seconds            │
 │                                          │
 │ Output:                                  │
-│ List<HrSample> (1 Hz, clean)             │
+│ List<HrSample> (uniform 1s grid)         │
 └─────────────┬────────────────────────────┘
               │
               ▼
 ┌──────────────────────────────────────────┐
-│ Step 3: detectEfforts()                  │
+│ Step 3: Dynamic HRmax Tracking           │
 │                                          │
-│ - HR expressed as % of HRmax             │
-│ - Threshold-based sustained effort       │
-│ - Detect start / end times               │
+│ - Track candidate HR > HRmax             │
+│ - Require +Δ BPM (noise guard)           │
+│ - Sustain for 5 consecutive seconds      │
 │                                          │
-│ Output:                                  │
-│ List<Effort>                             │
+│ Output (per sample):                     │
+│ currentHrMax                             │
 └─────────────┬────────────────────────────┘
               │
               ▼
 ┌──────────────────────────────────────────┐
-│ Step 4: HR Recovery per Effort           │
+│ Step 4: Per-Second HR Timeline           │
 │                                          │
-│ For each effort:                         │
+│ For each HrSample:                       │
+│ - Resolve HR zone                        │
+│ - Compute TRIMP increment                │
+│ - Attach dynamic HRmax                   │
+│                                          │
+│ Output:                                  │
+│ HrTimelinePoint {                        │
+│   timeSeconds                            │
+│   hr                                     │
+│   zone                                   │
+│   trimp                                  │
+│   hrMax                                  │
+│ }                                        │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 5: Effort Detection                 │
+│                                          │
+│ - Detect sustained high-HR segments      │
+│ - Threshold based on HRmax               │
+│                                          │
+│ Output:                                  │
+│ List<EffortSegment>                      │
+└─────────────┬────────────────────────────┘
+              │
+              ▼
+┌──────────────────────────────────────────┐
+│ Step 6: HR Recovery (HRR)                │
+│                                          │
 │ - Extract post-effort window             │
-│ - Compute HRR metrics                    │
-│                                          │
-│ Metrics:                                 │
-│ - HRR @ 60s                              │
-│ - HRR @ 120s                             │
-│ - Recovery slope                         │
-│ - Time constant (τ)                      │
+│ - Compute HR drop metrics                │
 │                                          │
 │ Output:                                  │
 │ List<HrrResult>                          │
@@ -56,16 +76,10 @@
               │
               ▼
 ┌──────────────────────────────────────────┐
-│ Step 5: TRIMP Computation                │
+│ Step 7: Training Load (TRIMP)            │
 │                                          │
-│ Inputs:                                  │
-│ - HR samples                             │
-│ - HRmax / HRrest                         │
-│ - Sex-specific constants                  │
-│                                          │
-│ Models:                                  │
-│ - Edwards TRIMP                          │
-│ - Banister TRIMP                         │
+│ - Edwards TRIMP (zones)                  │
+│ - Banister TRIMP (HRR-based)             │
 │                                          │
 │ Output:                                  │
 │ TrimpSummary                             │
@@ -73,10 +87,10 @@
               │
               ▼
 ┌──────────────────────────────────────────┐
-│ Step 6: Time in Zones                    │
+│ Step 8: Time in HR Zones                 │
 │                                          │
-│ - Zones defined as % of HRmax             │
-│ - Accumulate duration per zone           │
+│ - Aggregate seconds per zone             │
+│ - Build zone summary                     │
 │                                          │
 │ Output:                                  │
 │ TimeInZoneSummary                        │
@@ -84,23 +98,26 @@
               │
               ▼
 ┌──────────────────────────────────────────┐
-│ Step 7: VO₂max Estimation                │
+│ Step 9: VO₂max Estimation                │
 │                                          │
-│ - Based on best sustained effort         │
-│ - HR response vs intensity               │
+│ - Use HR dynamics + intensity            │
+│ - Optional (null if not enough data)     │
 │                                          │
 │ Output:                                  │
-│ Vo2MaxSummary                            │
+│ Vo2MaxSummary?                           │
 └─────────────┬────────────────────────────┘
               │
               ▼
-┌────────────────────────────────────────-──┐
-│ HrResult                                  │
-│                                           │
-│ - samples   (clean 1 Hz HR)   ← reference │
-│ - efforts                                 │
-│ - recoveries                              │
-│ - trimp                                   │
-│ - zones                                   │
-│ - vo2max                                  │
-└────────────────────────────────────-──────┘
+┌──────────────────────────────────────────┐
+│ Final Output: HrResult                   │
+│                                          │
+│ - samples                                │
+│ - timeline                               │
+│ - efforts                                │
+│ - recoveries                             │
+│ - trimp                                  │
+│ - zones                                  │
+│ - vo2max                                 │
+│ - hasNewHrMax                            │
+│ - updatedHrMax                           │
+└──────────────────────────────────────────┘

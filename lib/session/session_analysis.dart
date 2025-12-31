@@ -3,11 +3,9 @@ import 'package:magstep_dart/accelerometer/accel_pipeline_result.dart';
 import 'package:magstep_dart/accelerometer/raw/accel_sample.dart';
 import 'package:magstep_dart/gyroscope/gyro_pipeline.dart';
 import 'package:magstep_dart/gyroscope/gyro_pipeline_result.dart';
+import 'package:magstep_dart/magstep/magstep_pipeline.dart';
 
 import '../core/raw_sample.dart';
-
-import '../magpath/magpath_pipeline.dart';
-import '../magpath/magpath_result.dart';
 
 import '../hr/hr_pipeline.dart';
 import '../hr/hr_result.dart';
@@ -15,20 +13,14 @@ import '../hr/trimp/banister_constants.dart';
 
 /// High-level session analysis orchestrator.
 ///
-/// This class coordinates all sensor pipelines and produces
-/// a unified session-level analysis.
-///
-/// Pipelines included:
-/// - Magnetometer (MagPath)
-/// - Accelerometer
-/// - Gyroscope (SciPy-matched Butterworth + filtfilt)
-/// - Heart Rate (HR)
+/// Coordinates all sensor pipelines and exposes
+/// session-level outputs without sensor fusion.
 class SessionAnalysis {
   static ({
-    MagPathResult magPath,
     AccelPipelineResult accel,
     GyroPipelineResult gyro,
     HrResult hr,
+    List<double> magSteps,
   })
   run({
     required List<RawSample> magSamples,
@@ -40,9 +32,15 @@ class SessionAnalysis {
     required Sex sex,
   }) {
     // -------------------------------------------------------------------------
-    // Magnetometer
+    // Magnetometer (MagStep)
     // -------------------------------------------------------------------------
-    final mag = MagPathPipeline.run(magSamples);
+    final magMapped = _mapMagSamples(magSamples);
+
+    final magSteps = detectStepsMag(
+      t: magMapped.$1,
+      signals: magMapped.$2,
+      fs: magMapped.$3,
+    );
 
     // -------------------------------------------------------------------------
     // Accelerometer
@@ -53,7 +51,6 @@ class SessionAnalysis {
     // Gyroscope
     // -------------------------------------------------------------------------
     final gyroPipeline = GyroPipeline();
-
     final gyroMapped = _mapGyroSamples(gyroSamples);
 
     final gyro = gyroPipeline.process(
@@ -72,7 +69,7 @@ class SessionAnalysis {
       sex: sex,
     );
 
-    return (magPath: mag, accel: accel, gyro: gyro, hr: hr);
+    return (accel: accel, gyro: gyro, hr: hr, magSteps: magSteps);
   }
 
   // ---------------------------------------------------------------------------
@@ -91,9 +88,6 @@ class SessionAnalysis {
     }).toList();
   }
 
-  /// Maps raw gyro samples into separate X / Y / Z arrays.
-  ///
-  /// Time is not required for filtering, only for alignment.
   static (List<double>, List<double>, List<double>) _mapGyroSamples(
     List<RawSample> raw,
   ) {
@@ -112,5 +106,33 @@ class SessionAnalysis {
     }
 
     return (x, y, z);
+  }
+
+  static (List<double>, List<List<double>>, double) _mapMagSamples(
+    List<RawSample> raw,
+  ) {
+    if (raw.isEmpty) {
+      return (const [], const [], 0.0);
+    }
+
+    final t0 = raw.first.timestamp;
+
+    final t = <double>[];
+    final x = <double>[];
+    final y = <double>[];
+    final z = <double>[];
+
+    for (final s in raw) {
+      final tsSeconds = s.timestamp.difference(t0).inMicroseconds / 1e6;
+
+      t.add(tsSeconds);
+      x.add(s.x);
+      y.add(s.y);
+      z.add(s.z);
+    }
+
+    final double fs = t.length > 1 ? 1.0 / (t[1] - t[0]) : 0.0;
+
+    return (t, [x, y, z], fs);
   }
 }

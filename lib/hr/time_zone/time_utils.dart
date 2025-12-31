@@ -2,14 +2,6 @@
 library time_utils;
 
 /// Ensures that a list of timestamps is strictly increasing.
-///
-/// Polar devices (and BLE streams in general) may emit duplicate or
-/// slightly out-of-order timestamps due to buffering or transmission delay.
-///
-/// This function enforces monotonicity by minimally shifting
-/// invalid timestamps forward using a very small epsilon.
-///
-/// This mirrors the behavior used in the original Python implementation.
 List<double> ensureMonotonicSeconds(List<double> timestamps) {
   if (timestamps.isEmpty) return [];
 

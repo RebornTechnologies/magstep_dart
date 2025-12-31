@@ -2,6 +2,7 @@ import 'package:magstep_dart/hr/hr_sample.dart';
 
 import 'trimp_edwards.dart';
 import 'trimp_banister.dart';
+import 'trimp_banister_result.dart';
 import 'banister_constants.dart';
 
 /// Aggregates multiple training load metrics.
@@ -18,7 +19,20 @@ class TrimpSummary {
   /// Banister TRIMP (HRR-based)
   final double banister;
 
-  const TrimpSummary({required this.edwards, required this.banister});
+  /// Time (seconds) contributing to Banister TRIMP
+  ///
+  /// This represents the effective physiological load duration
+  /// (HR > HRrest), not just total session duration.
+  final double banisterTimeSeconds;
+
+  const TrimpSummary({
+    required this.edwards,
+    required this.banister,
+    required this.banisterTimeSeconds,
+  });
+
+  /// Convenience getter
+  double get banisterTimeMinutes => banisterTimeSeconds / 60.0;
 }
 
 /// Computes all supported TRIMP metrics from HR data.
@@ -33,13 +47,16 @@ TrimpSummary computeTrimpSummary({
   required double hrRest,
   required Sex sex,
 }) {
+  final banisterResult = trimpBanister(
+    samples: samples,
+    hrRest: hrRest,
+    hrMax: hrMax,
+    sex: sex,
+  );
+
   return TrimpSummary(
     edwards: trimpEdwards(samples: samples, hrMax: hrMax),
-    banister: trimpBanister(
-      samples: samples,
-      hrRest: hrRest,
-      hrMax: hrMax,
-      sex: sex,
-    ),
+    banister: banisterResult.trimp,
+    banisterTimeSeconds: banisterResult.activeTimeSeconds,
   );
 }
