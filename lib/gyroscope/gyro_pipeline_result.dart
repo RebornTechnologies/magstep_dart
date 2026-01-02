@@ -4,4 +4,5 @@ class GyroPipelineResult {
   final List<double> z;
 
   GyroPipelineResult({required this.x, required this.y, required this.z});
+  int get length => x.length;
 }

@@ -21,7 +21,6 @@ void main() {
 
     final payload = decoded['data']['payload'];
     final List<dynamic> samples = payload['samples'];
-
     final int startTimeMs = payload['startTime'];
 
     // -------------------------------------------------------------------------
@@ -32,7 +31,7 @@ void main() {
     final rawSamples = samples.map<RawSample>((s) {
       final int sensorTs = s['timeStamp'];
 
-      // Sensor timestamp is in nanoseconds → convert to milliseconds
+      // ns → ms (matches Python)
       final double deltaMs = (sensorTs - firstSensorTs) / 1e6;
 
       final DateTime timestamp = DateTime.fromMillisecondsSinceEpoch(
@@ -50,30 +49,32 @@ void main() {
     print('Loaded ${rawSamples.length} gyro samples');
 
     // -------------------------------------------------------------------------
-    // Split axes (SciPy-style input arrays)
+    // Build time + axis arrays
     // -------------------------------------------------------------------------
+    final t = <double>[];
     final gx = <double>[];
     final gy = <double>[];
     final gz = <double>[];
 
-    for (final s in rawSamples) {
-      gx.add(s.x);
-      gy.add(s.y);
-      gz.add(s.z);
+    for (int i = 0; i < rawSamples.length; i++) {
+      t.add(i.toDouble());
+      gx.add(rawSamples[i].x);
+      gy.add(rawSamples[i].y);
+      gz.add(rawSamples[i].z);
     }
 
     // -------------------------------------------------------------------------
-    // Run Gyro Pipeline (DSP Butterworth + filtfilt)
+    // Run Gyro Pipeline (DSP + analysis)
     // -------------------------------------------------------------------------
     final pipeline = GyroPipeline();
 
-    final result = pipeline.process(x: gx, y: gy, z: gz);
+    final result = pipeline.process(t: t, x: gx, y: gy, z: gz);
 
-    final int n = result.x.length;
+    final int n = result.t.length;
     print('Filtered $n gyro samples');
 
     // -------------------------------------------------------------------------
-    // Serialize filtered output (Python / SciPy comparable)
+    // Serialize output
     // -------------------------------------------------------------------------
     final outputJson = {
       'meta': {
@@ -90,10 +91,11 @@ void main() {
       },
       'samples': List.generate(n, (i) {
         return {
-          'index': i,
-          'gx': result.x[i],
-          'gy': result.y[i],
-          'gz': result.z[i],
+          't': result.t[i], // index
+          'gx': result.filtered.x[i],
+          'gy': result.filtered.y[i],
+          'gz': result.filtered.z[i],
+          'mag': result.magnitude[i],
         };
       }),
     };

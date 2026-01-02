@@ -1,8 +1,9 @@
 import 'package:magstep_dart/accelerometer/accel_pipeline.dart';
 import 'package:magstep_dart/accelerometer/accel_pipeline_result.dart';
 import 'package:magstep_dart/accelerometer/raw/accel_sample.dart';
+import 'package:magstep_dart/gyroscope/gyro_analysis_result.dart';
 import 'package:magstep_dart/gyroscope/gyro_pipeline.dart';
-import 'package:magstep_dart/gyroscope/gyro_pipeline_result.dart';
+
 import 'package:magstep_dart/magstep/magstep_pipeline.dart';
 
 import '../core/raw_sample.dart';
@@ -18,7 +19,7 @@ import '../hr/trimp/banister_constants.dart';
 class SessionAnalysis {
   static ({
     AccelPipelineResult accel,
-    GyroPipelineResult gyro,
+    GyroAnalysisResult gyro,
     HrResult hr,
     List<double> magSteps,
   })
@@ -54,9 +55,10 @@ class SessionAnalysis {
     final gyroMapped = _mapGyroSamples(gyroSamples);
 
     final gyro = gyroPipeline.process(
-      x: gyroMapped.$1,
-      y: gyroMapped.$2,
-      z: gyroMapped.$3,
+      t: gyroMapped.$1,
+      x: gyroMapped.$2,
+      y: gyroMapped.$3,
+      z: gyroMapped.$4,
     );
 
     // -------------------------------------------------------------------------
@@ -88,24 +90,32 @@ class SessionAnalysis {
     }).toList();
   }
 
-  static (List<double>, List<double>, List<double>) _mapGyroSamples(
-    List<RawSample> raw,
-  ) {
+  /// Maps raw gyroscope samples into:
+  /// - time array (seconds since session start)
+  /// - x, y, z axis arrays
+  static (List<double>, List<double>, List<double>, List<double>)
+  _mapGyroSamples(List<RawSample> raw) {
     if (raw.isEmpty) {
-      return (const [], const [], const []);
+      return (const [], const [], const [], const []);
     }
 
-    final x = <double>[];
-    final y = <double>[];
-    final z = <double>[];
+    final t0 = raw.first.timestamp;
+
+    final t = <double>[];
+    final gx = <double>[];
+    final gy = <double>[];
+    final gz = <double>[];
 
     for (final s in raw) {
-      x.add(s.x);
-      y.add(s.y);
-      z.add(s.z);
+      final tsSeconds = s.timestamp.difference(t0).inMicroseconds / 1e6;
+      t.add(tsSeconds);
+
+      gx.add(s.x);
+      gy.add(s.y);
+      gz.add(s.z);
     }
 
-    return (x, y, z);
+    return (t, gx, gy, gz);
   }
 
   static (List<double>, List<List<double>>, double) _mapMagSamples(
