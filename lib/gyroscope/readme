@@ -10,15 +10,16 @@
 └───────────────────────┬────────────────────┘
                         ↓
 ┌────────────────────────────────────────────┐
-│ Step 2: Timestamp normalization            │
+│ Step 2: Time normalization (analysis)      │
 │                                            │
-│ t0 = first sensor timestamp                 │
-│ deltaMs = (ts - t0) / 1e6                  │
-│ epochMs = startTimeMs + deltaMs            │
+│ t[i] = i (sample index)                    │
 │                                            │
 │ Purpose:                                   │
-│  - align gyro with other sensors           │
-│  - deterministic time base                 │
+│  - stable visualization axis               │
+│  - no floating-point drift                  │
+│  - easy UI mapping                         │
+│                                            │
+│ NOTE: seconds = t / fs (UI-level)          │
 └───────────────────────┬────────────────────┘
                         ↓
 ┌────────────────────────────────────────────┐
@@ -46,7 +47,7 @@
 └───────────────────────┬────────────────────┘
                         ↓
 ┌────────────────────────────────────────────┐
-│ Step 5: SOS Cascade Filtering              │
+│ Step 5: SOS cascade filtering               │
 │                                            │
 │ Each axis processed independently          │
 │                                            │
@@ -56,7 +57,7 @@
 └───────────────────────┬────────────────────┘
                         ↓
 ┌────────────────────────────────────────────┐
-│ Step 6: Zero-Phase Filtering (filtfilt)      │
+│ Step 6: Zero-phase filtering (filtfilt)       │
 │                                            │
 │ Forward pass                               │
 │ Reverse signal                             │
@@ -69,9 +70,19 @@
 └───────────────────────┬────────────────────┘
                         ↓
 ┌────────────────────────────────────────────┐
-│ Step 7: Output GyroPipelineResult          │
+│ Step 7: Magnitude computation              │
 │                                            │
-│ gx_filt, gy_filt, gz_filt                     │
+│ |ω| = sqrt(gx² + gy² + gz²)                │
 │                                            │
-│ Numerically aligned with SciPy             │
+│ Direction-independent rotation intensity   │
+└───────────────────────┬────────────────────┘
+                        ↓
+┌────────────────────────────────────────────┐
+│ Step 8: Output GyroAnalysisResult          │
+│                                            │
+│  - t (sample index)                        │
+│  - filtered gx, gy, gz                      │
+│  - magnitude                               │
+│                                            │
+│ UI-ready, session-level data               │
 └────────────────────────────────────────────┘
